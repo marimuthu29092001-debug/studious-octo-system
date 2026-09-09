@@ -2418,23 +2418,32 @@
     }
     animateParticles();
 
-    // 4. Menu Filter Logic
+    // 4. Menu Filter Logic with 1-Second Coffee Loader
     function filterMenu(category, btnElem) {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btnElem.classList.add('active');
 
-      const cards = document.querySelectorAll('.coffee-card');
-      cards.forEach(card => {
-        if (category === 'all' || card.dataset.cat === category) {
-          card.style.display = 'flex';
-          card.style.animation = 'modalSlideUp 0.3s ease';
-        } else {
-          card.style.display = 'none';
-        }
-      });
+      const categoryLabels = {
+        all: 'All 10 Brews',
+        espresso: 'Espresso & Pour-Over',
+        cold: 'Kyoto Cold Drips',
+        bakery: 'Artisan Bakery'
+      };
+
+      triggerCoffeeLoader(null, () => {
+        const cards = document.querySelectorAll('.coffee-card');
+        cards.forEach(card => {
+          if (category === 'all' || card.dataset.cat === category) {
+            card.style.display = 'flex';
+            card.style.animation = 'modalSlideUp 0.3s ease';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      }, `Filtering ${categoryLabels[category] || category}...`);
     }
 
-    // 5. Roast Explorer Interactive Switcher
+    // 5. Roast Explorer Interactive Switcher with 1-Second Coffee Loader
     const roasts = {
       light: {
         origin: 'Single Origin: Ethiopian Highlands (2,100 MASL)',
@@ -2473,31 +2482,42 @@
       btn.classList.add('active');
 
       const data = roasts[type];
-      document.getElementById('roastOrigin').innerText = data.origin;
-      document.getElementById('roastTitle').innerText = data.title;
-      document.getElementById('roastDesc').innerText = data.desc;
-      document.getElementById('roastAcidity').innerText = data.acidity;
-      document.getElementById('roastBody').innerText = data.body;
-      document.getElementById('roastMethod').innerText = data.method;
-      document.getElementById('roastTempLabel').innerText = data.temp;
-      document.getElementById('roastBeanVisual').style.background = data.color;
+      triggerCoffeeLoader(null, () => {
+        document.getElementById('roastOrigin').innerText = data.origin;
+        document.getElementById('roastTitle').innerText = data.title;
+        document.getElementById('roastDesc').innerText = data.desc;
+        document.getElementById('roastAcidity').innerText = data.acidity;
+        document.getElementById('roastBody').innerText = data.body;
+        document.getElementById('roastMethod').innerText = data.method;
+        document.getElementById('roastTempLabel').innerText = data.temp;
+        document.getElementById('roastBeanVisual').style.background = data.color;
+      }, `Exploring ${data.title}...`);
     }
 
-    // 6. Modal Controls
-    function openNotifyModal(itemName = null) {
-      const modal = document.getElementById('notifyModal');
-      modal.classList.add('active');
-      document.body.classList.add('modal-open');
-      document.documentElement.classList.add('modal-open');
+    // 6. Modal Controls with 1-Second Coffee Loader
+    function openNotifyModal(itemName = null, skipLoader = false) {
+      const showModal = () => {
+        const modal = document.getElementById('notifyModal');
+        modal.classList.add('active');
+        document.body.classList.add('modal-open');
+        document.documentElement.classList.add('modal-open');
 
-      const input = document.getElementById('notifyEmail');
-      // preventScroll: true is CRITICAL on mobile so the browser does NOT scroll the page back to top!
-      setTimeout(() => {
-        if (input) input.focus({ preventScroll: true });
-      }, 100);
+        const input = document.getElementById('notifyEmail');
+        // preventScroll: true is CRITICAL on mobile so the browser does NOT scroll the page back to top!
+        setTimeout(() => {
+          if (input) input.focus({ preventScroll: true });
+        }, 100);
 
-      if (itemName) {
-        showToast('Tasting Note Added', `Added ${itemName} to your tasting preview list.`);
+        if (itemName) {
+          showToast('Tasting Note Added', `Added ${itemName} to your tasting preview list.`);
+        }
+      };
+
+      if (skipLoader) {
+        showModal();
+      } else {
+        const msg = itemName ? `Brewing ${itemName}...` : 'Brewing VIP Launch Pass...';
+        triggerCoffeeLoader(null, showModal, msg);
       }
     }
 
@@ -2970,19 +2990,88 @@
       document.documentElement.classList.remove('menu-open');
     }
 
-    // Smooth navigation to page sections without background jumping
+    // =========================================================================
+    // 1-SECOND COFFEE LOADER ENGINE (MATCHES USER'S GOLDEN CUP ICON)
+    // =========================================================================
+    let coffeeLoaderTimer = null;
+
+    function triggerCoffeeLoader(e, callback, statusMsg = 'Brewing Artisanal Coffee...') {
+      if (e) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      }
+
+      const overlay = document.getElementById('coffeeLoader');
+      const progressBar = document.getElementById('loaderProgressBar');
+      const statusText = document.getElementById('loaderStatusText');
+
+      if (!overlay) {
+        if (typeof callback === 'function') callback();
+        return;
+      }
+
+      if (statusText) statusText.innerText = statusMsg;
+
+      // Reset progress bar to 0%
+      if (progressBar) {
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '0%';
+      }
+
+      // Show overlay and lock body
+      overlay.classList.add('active');
+      document.body.classList.add('menu-open');
+      document.documentElement.classList.add('menu-open');
+
+      // Start 1-second progress bar fill
+      setTimeout(() => {
+        if (progressBar) {
+          progressBar.style.transition = 'width 0.95s cubic-bezier(0.25, 1, 0.5, 1)';
+          progressBar.style.width = '100%';
+        }
+      }, 20);
+
+      // Exactly 1.0s (1000ms)
+      if (coffeeLoaderTimer) clearTimeout(coffeeLoaderTimer);
+      coffeeLoaderTimer = setTimeout(() => {
+        overlay.classList.remove('active');
+        document.body.classList.remove('menu-open');
+        document.documentElement.classList.remove('menu-open');
+
+        if (typeof callback === 'function') {
+          callback();
+        }
+      }, 1000);
+    }
+
+    function scrollToSection(selector) {
+      const el = document.querySelector(selector);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function openNotifyModalWithLoader(itemName = null) {
+      const msg = itemName ? `Selecting ${itemName}...` : 'Preparing VIP Invitation...';
+      triggerCoffeeLoader(null, () => {
+        openNotifyModal(itemName);
+      }, msg);
+    }
+
+    // Smooth navigation to page sections with 1-second coffee loader
     function navigateMobileSection(e, targetId) {
       if (e) {
         if (typeof e.preventDefault === 'function') e.preventDefault();
         if (typeof e.stopPropagation === 'function') e.stopPropagation();
       }
       closeMobileNav();
-      const targetEl = document.querySelector(targetId);
-      if (targetEl) {
-        setTimeout(() => {
+
+      triggerCoffeeLoader(null, () => {
+        const targetEl = document.querySelector(targetId);
+        if (targetEl) {
           targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 80);
-      }
+        }
+      }, 'Navigating to Section...');
     }
 
     function handleMobileVipClick(e) {
@@ -2991,9 +3080,7 @@
         if (typeof e.stopPropagation === 'function') e.stopPropagation();
       }
       closeMobileNav();
-      setTimeout(() => {
-        openNotifyModal('VIP Mobile Launch Pass');
-      }, 60);
+      openNotifyModalWithLoader('VIP Mobile Launch Pass');
     }
 
     // Prevent background scrolling while touch-swiping outside the menu drawer
